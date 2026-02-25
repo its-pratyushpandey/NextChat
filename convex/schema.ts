@@ -39,6 +39,24 @@ export default defineSchema({
     conversationId: v.id("conversations"),
     senderId: v.id("users"),
     body: v.string(),
+    type: v.optional(
+      v.union(v.literal("text"), v.literal("file"), v.literal("voice")),
+    ),
+    file: v.optional(
+      v.object({
+        storageId: v.id("_storage"),
+        fileName: v.string(),
+        fileSize: v.number(),
+        mimeType: v.string(),
+      }),
+    ),
+    voice: v.optional(
+      v.object({
+        storageId: v.id("_storage"),
+        durationMs: v.number(),
+        mimeType: v.string(),
+      }),
+    ),
     createdAt: v.number(),
     deletedAt: v.optional(v.number()),
   })

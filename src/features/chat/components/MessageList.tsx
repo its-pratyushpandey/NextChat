@@ -25,6 +25,20 @@ export function MessageList({
         _id: Id<"messages">;
         senderId: Id<"users">;
         body: string;
+        type?: "text" | "file" | "voice";
+        file?: {
+          storageId: Id<"_storage">;
+          fileName: string;
+          fileSize: number;
+          mimeType: string;
+        };
+        voice?: {
+          storageId: Id<"_storage">;
+          durationMs: number;
+          mimeType: string;
+        };
+        fileUrl?: string | null;
+        voiceUrl?: string | null;
         createdAt: number;
         deletedAt?: number;
         sender: Doc<"users"> | null;

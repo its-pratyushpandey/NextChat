@@ -7,6 +7,7 @@ import type { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { formatChatTimestamp } from "@/lib/formatTimestamp";
 import { Button } from "@/components/ui/button";
+import { Download, File as FileIcon, Play } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +25,22 @@ function isEmoji(value: string): value is Emoji {
   return (EMOJIS as readonly string[]).includes(value);
 }
 
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"] as const;
+  const idx = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  const value = bytes / 1024 ** idx;
+  const rounded = value >= 10 || idx === 0 ? Math.round(value) : Math.round(value * 10) / 10;
+  return `${rounded} ${units[idx]}`;
+}
+
+function formatDurationMs(durationMs: number): string {
+  const total = Math.max(0, Math.floor(durationMs / 1000));
+  const mm = Math.floor(total / 60);
+  const ss = total % 60;
+  return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+}
+
 export function MessageBubble({
   message,
   isMe,
@@ -32,6 +49,20 @@ export function MessageBubble({
     _id: Id<"messages">;
     senderId: Id<"users">;
     body: string;
+    type?: "text" | "file" | "voice";
+    file?: {
+      storageId: Id<"_storage">;
+      fileName: string;
+      fileSize: number;
+      mimeType: string;
+    };
+    voice?: {
+      storageId: Id<"_storage">;
+      durationMs: number;
+      mimeType: string;
+    };
+    fileUrl?: string | null;
+    voiceUrl?: string | null;
     createdAt: number;
     deletedAt?: number;
     sender: Doc<"users"> | null;
@@ -46,9 +77,10 @@ export function MessageBubble({
   const [showReactions, setShowReactions] = useState(false);
   const bubbleRef = useRef<HTMLDivElement | null>(null);
 
-  const displayBody = message.deletedAt
-    ? "This message was deleted"
-    : message.body;
+  const kind = message.type ?? "text";
+  const isDeleted = !!message.deletedAt;
+
+  const displayBody = isDeleted ? "This message was deleted" : message.body;
 
   const timestamp = useMemo(
     () => formatChatTimestamp(message.createdAt),
@@ -56,7 +88,8 @@ export function MessageBubble({
   );
 
   async function onCopy() {
-    if (message.deletedAt) return;
+    if (isDeleted) return;
+    if (kind !== "text") return;
     const text = message.body;
     try {
       await navigator.clipboard.writeText(text);
@@ -137,14 +170,106 @@ export function MessageBubble({
             </div>
           ) : null}
 
-          <p
-            className={cn(
-              "whitespace-pre-wrap wrap-break-word",
-              message.deletedAt && (isMe ? "italic text-primary-foreground/75" : "italic text-muted-foreground"),
-            )}
-          >
-            {displayBody}
-          </p>
+          {kind === "text" || isDeleted ? (
+            <p
+              className={cn(
+                "whitespace-pre-wrap wrap-break-word",
+                isDeleted &&
+                  (isMe
+                    ? "italic text-primary-foreground/75"
+                    : "italic text-muted-foreground"),
+              )}
+            >
+              {displayBody}
+            </p>
+          ) : kind === "file" ? (
+            <div className="space-y-2">
+              {!message.file ? (
+                <p className={cn("text-sm", isMe ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                  File unavailable
+                </p>
+              ) : message.file.mimeType.startsWith("image/") && message.fileUrl ? (
+                <div className="overflow-hidden rounded-xl border bg-background/5">
+                  {/* Intentionally using <img> to avoid Next Image domain config */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={message.fileUrl}
+                    alt={message.file.fileName}
+                    className="max-h-72 w-full object-contain"
+                    loading="lazy"
+                  />
+                </div>
+              ) : message.file.mimeType.startsWith("video/") && message.fileUrl ? (
+                <video
+                  className="w-full max-w-full rounded-xl border"
+                  controls
+                  preload="metadata"
+                  src={message.fileUrl}
+                />
+              ) : message.file.mimeType.startsWith("audio/") && message.fileUrl ? (
+                <div className="rounded-xl border bg-background/5 p-2">
+                  <audio className="w-full" controls preload="metadata" src={message.fileUrl} />
+                </div>
+              ) : (
+                <div className={cn("rounded-xl border p-3", isMe ? "bg-primary-foreground/10" : "bg-background")}> 
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        "flex h-9 w-9 items-center justify-center rounded-lg border",
+                        isMe ? "border-primary-foreground/20" : "bg-muted/20",
+                      )}
+                    >
+                      <FileIcon className="size-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {message.file.fileName}
+                      </p>
+                      <p className={cn("text-xs", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                        {formatBytes(message.file.fileSize)} • {message.file.mimeType}
+                      </p>
+                    </div>
+                    {message.fileUrl ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={isMe ? "secondary" : "outline"}
+                        className="shrink-0"
+                        asChild
+                      >
+                        <a href={message.fileUrl} target="_blank" rel="noreferrer">
+                          <Download className="size-4" />
+                          Download
+                        </a>
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {!message.voice || !message.voiceUrl ? (
+                <p className={cn("text-sm", isMe ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                  Voice message unavailable
+                </p>
+              ) : (
+                <div className={cn("rounded-xl border p-2", isMe ? "bg-primary-foreground/10" : "bg-background")}>
+                  <div className="flex items-center gap-2">
+                    <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg border", isMe ? "border-primary-foreground/20" : "bg-muted/20")}>
+                      <Play className="size-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <audio className="w-full" controls preload="metadata" src={message.voiceUrl} />
+                      <p className={cn("mt-1 text-[11px]", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                        {formatDurationMs(message.voice.durationMs)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="mt-1 flex items-end justify-between gap-3">
             <p
@@ -196,7 +321,7 @@ export function MessageBubble({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
-                    disabled={!!message.deletedAt}
+                    disabled={isDeleted || kind !== "text"}
                     onClick={onCopy}
                   >
                     Copy
