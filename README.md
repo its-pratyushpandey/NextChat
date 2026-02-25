@@ -1,36 +1,126 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NextChat (Next.js + Convex + Clerk)
 
-## Getting Started
+Production-style realtime chat app (1:1 + group) built with:
 
-First, run the development server:
+- Next.js (App Router) + TypeScript
+- Convex (DB + realtime subscriptions)
+- Clerk (auth)
+- Tailwind + shadcn/ui
+- Framer Motion + GSAP
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Features
+
+- Auth: Clerk email + social login, protected routes, user profile button
+- Convex sync: first-login user sync + persisted profiles
+- User discovery: debounced realtime search, online indicator
+- Direct + group chat: realtime messages, reactions, soft delete
+- Presence + typing: live online/offline and “is typing…” indicator
+- Unread counts: badge in sidebar; clears when opening a conversation
+- Smart scroll: auto-scroll near bottom + “↓ New messages” button with GSAP scroll
+- Loading/error states: skeletons, global error boundaries, send spinner + retry
+
+## Prereqs
+
+- Node.js 18+ (or newer LTS)
+- A Clerk application (publishable + secret keys)
+- Convex CLI (installed via project devDependencies; invoked via `npx convex`)
+
+## Environment Variables
+
+Create/update `.env.local` in the project root.
+
+### Clerk
+
+Required:
+
+```
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Typical (recommended) routing values:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/app
+NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/app
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Convex
 
-## Learn More
+Run Convex once locally and it will populate these automatically:
 
-To learn more about Next.js, take a look at the following resources:
+```
+CONVEX_DEPLOYMENT=
+NEXT_PUBLIC_CONVEX_URL=
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Convex + Clerk auth (required for authenticated mutations)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This app uses `ConvexProviderWithClerk` and validates Clerk JWTs inside Convex.
 
-## Deploy on Vercel
+1) Set the Clerk issuer domain in the *Convex deployment environment* (not just `.env.local`).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Local dev:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+npm run convex:dev
+```
+
+In another terminal (while Convex is running):
+
+```
+npx convex env set CLERK_JWT_ISSUER_DOMAIN https://<your-clerk-domain>.clerk.accounts.dev
+```
+
+Production:
+- Convex Dashboard → Settings → Environment Variables
+- Add `CLERK_JWT_ISSUER_DOMAIN` with your Clerk instance domain
+
+2) About the `.../tokens/convex` 404
+
+The Convex helper `convex/react-clerk` requests a Clerk token with a JWT template named `convex`.
+If you haven't created that template in Clerk, Clerk returns `404`.
+
+This project intentionally avoids requiring that template by fetching the default Clerk token.
+If you prefer the stricter setup, create a Clerk JWT template named `convex` and set an audience,
+then update `convex/auth.config.ts` to require `applicationID`.
+
+## Local Development
+
+In one terminal:
+
+```
+npm run convex:dev
+```
+
+In another terminal:
+
+```
+npm run dev
+```
+
+App:
+
+- http://localhost:3000
+
+## Deployment (Vercel + Convex)
+
+1) Deploy Convex:
+
+```
+npm run convex:deploy
+```
+
+2) In Vercel project settings, set env vars:
+
+- All Clerk env vars above
+- `NEXT_PUBLIC_CONVEX_URL` (from Convex dashboard / deploy output)
+- `CONVEX_DEPLOYMENT` (if your Convex deploy requires it)
+
+3) Deploy the Next.js app.
+
+## Video Script
+
+See [VIDEO_SCRIPT.md](VIDEO_SCRIPT.md).
