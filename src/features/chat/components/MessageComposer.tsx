@@ -6,8 +6,37 @@ import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Loader2, SendHorizontal } from "lucide-react";
+import { Loader2, Mic, Paperclip, Smile, SendHorizontal } from "lucide-react";
 import { gsap } from "gsap";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+const COMPOSER_EMOJIS = [
+  "😀",
+  "😁",
+  "😄",
+  "😅",
+  "😂",
+  "🥲",
+  "😊",
+  "😍",
+  "😘",
+  "😎",
+  "🤔",
+  "😴",
+  "🙌",
+  "👍",
+  "🙏",
+  "🎉",
+  "🔥",
+  "⚡",
+  "❤️",
+  "✨",
+] as const;
 
 export function MessageComposer({
   conversationId,
@@ -24,6 +53,7 @@ export function MessageComposer({
   const pingTyping = useMutation(api.typing.ping);
 
   const canSend = body.trim().length > 0 && !sending && !disabled;
+  const charCount = body.length;
 
   useEffect(() => {
     const btn = document.querySelector('[data-gsap="send-button"]');
@@ -99,6 +129,50 @@ export function MessageComposer({
         className="flex items-end gap-2 rounded-2xl border bg-background p-2 shadow-sm"
         data-gsap="composer-send"
       >
+        <div className="flex flex-col items-center gap-1 pb-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-10 w-10 rounded-2xl"
+                disabled={disabled}
+                aria-label="Open emoji picker"
+              >
+                <Smile className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <div className="grid grid-cols-10 gap-1 p-1">
+                {COMPOSER_EMOJIS.map((emoji) => (
+                  <DropdownMenuItem
+                    key={emoji}
+                    className="h-8 w-8 justify-center rounded-md p-0"
+                    onClick={() => {
+                      setBody((prev) => (prev ? `${prev} ${emoji}` : emoji));
+                      typingPing();
+                    }}
+                  >
+                    <span className="text-base leading-none">{emoji}</span>
+                  </DropdownMenuItem>
+                ))}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="h-10 w-10 rounded-2xl"
+            disabled
+            aria-label="Attach (UI only)"
+          >
+            <Paperclip className="size-4" />
+          </Button>
+        </div>
+
         <Textarea
           value={body}
           onChange={(e) => {
@@ -109,12 +183,29 @@ export function MessageComposer({
           className="min-h-11 resize-none border-0 bg-transparent px-2 py-2 shadow-none focus-visible:ring-0"
           disabled={disabled}
           onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              void onSend();
+              return;
+            }
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               void onSend();
             }
           }}
         />
+
+        <div className="flex flex-col items-center gap-1 pb-1">
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="h-10 w-10 rounded-2xl"
+            disabled
+            aria-label="Voice message (UI only)"
+          >
+            <Mic className="size-4" />
+          </Button>
 
         <Button
           onClick={onSend}
@@ -130,6 +221,12 @@ export function MessageComposer({
             <SendHorizontal className="size-4" />
           )}
         </Button>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
+        <span>Enter to send • Shift+Enter newline</span>
+        <span suppressHydrationWarning>{charCount}</span>
       </div>
     </div>
   );

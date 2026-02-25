@@ -7,7 +7,6 @@ import { api } from "../../../../convex/_generated/api";
 import type { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageList } from "@/features/chat/components/MessageList";
 import { MessageComposer } from "@/features/chat/components/MessageComposer";
 import { TypingIndicator } from "@/features/chat/components/TypingIndicator";
@@ -15,7 +14,8 @@ import { cn } from "@/lib/utils";
 import { Sidebar } from "@/features/chat/components/Sidebar";
 import { PanelLeft } from "lucide-react";
 import { ChatSidebarDrawer } from "@/features/chat/components/ChatSidebarDrawer";
-import { getInitials } from "@/features/chat/lib/initials";
+import { getUserDisplayName } from "@/lib/userPresentation";
+import { UserAvatar } from "@/components/UserAvatar";
 
 export function ChatView({ conversationId }: { conversationId: string }) {
   const { isAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
@@ -67,7 +67,11 @@ export function ChatView({ conversationId }: { conversationId: string }) {
           const other = info?.members.find(
             (m: Doc<"users">) => m._id !== me?._id,
           );
-          return other?.name ?? "Chat";
+          return getUserDisplayName({
+            id: String(other?._id ?? cid ?? ""),
+            username: other?.name ?? null,
+            email: other?.email ?? null,
+          });
         })();
 
   const otherUser =
@@ -90,6 +94,9 @@ export function ChatView({ conversationId }: { conversationId: string }) {
     ? onlineSet.has(String(otherUser._id))
     : false;
 
+  const headerAvatarId = String(otherUser?._id ?? cid ?? "");
+  const headerAvatarImageUrl = otherUser?.imageUrl ?? null;
+
   return (
     <div className="flex h-dvh flex-col">
       <div className="flex items-center justify-between gap-3 border-b bg-card/80 px-4 py-3 backdrop-blur supports-backdrop-filter:bg-card/70">
@@ -111,19 +118,15 @@ export function ChatView({ conversationId }: { conversationId: string }) {
 
           <div className="flex min-w-0 items-center gap-3">
             <div className="relative">
-              <Avatar className="size-9">
-                <AvatarImage src={otherUser?.imageUrl ?? undefined} />
-                <AvatarFallback>{getInitials(title)}</AvatarFallback>
-              </Avatar>
-              {showPresenceDot ? (
-                <span
-                  className={
-                    "absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-card " +
-                    (isOtherOnline ? "bg-emerald-500" : "bg-muted")
-                  }
-                  aria-hidden="true"
-                />
-              ) : null}
+              <UserAvatar
+                userId={headerAvatarId}
+                name={title}
+                imageUrl={headerAvatarImageUrl}
+                size={40}
+                isOnline={showPresenceDot ? isOtherOnline : undefined}
+                statusBorderClassName="border-card"
+                priority
+              />
             </div>
 
             <div className="min-w-0">

@@ -14,6 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { gsap } from "gsap";
+import { getUserDisplayName } from "@/lib/userPresentation";
+import { UserAvatar } from "@/components/UserAvatar";
 
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢"] as const;
 type Emoji = (typeof EMOJIS)[number];
@@ -53,6 +55,29 @@ export function MessageBubble({
     [message.createdAt],
   );
 
+  async function onCopy() {
+    if (message.deletedAt) return;
+    const text = message.body;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Best-effort fallback.
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      try {
+        document.execCommand("copy");
+      } finally {
+        document.body.removeChild(textarea);
+      }
+    }
+  }
+
   async function onDelete() {
     await softDelete({ messageId: message._id });
   }
@@ -85,14 +110,31 @@ export function MessageBubble({
           className={cn(
             "group rounded-2xl border px-3.5 py-2.5 text-sm shadow-sm",
             isMe
-              ? "bg-primary text-primary-foreground"
+              ? "bg-gradient-to-br from-primary to-primary/85 text-primary-foreground"
               : "bg-card text-foreground",
           )}
         >
           {!isMe ? (
-            <p className="mb-1 text-[11px] font-medium text-muted-foreground">
-              {message.sender?.name ?? "Unknown"}
-            </p>
+            <div className="mb-1 flex items-center gap-2">
+              <UserAvatar
+                userId={String(message.senderId)}
+                name={getUserDisplayName({
+                  id: String(message.senderId),
+                  username: message.sender?.name ?? null,
+                  email: message.sender?.email ?? null,
+                })}
+                imageUrl={message.sender?.imageUrl ?? null}
+                size={28}
+                statusBorderClassName="border-card"
+              />
+              <p className="min-w-0 truncate text-[11px] font-medium text-muted-foreground">
+                {getUserDisplayName({
+                  id: String(message.senderId),
+                  username: message.sender?.name ?? null,
+                  email: message.sender?.email ?? null,
+                })}
+              </p>
+            </div>
           ) : null}
 
           <p
@@ -136,32 +178,40 @@ export function MessageBubble({
                 😊
               </Button>
 
-              {isMe ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="secondary"
-                      className={cn(
-                        "h-7 w-7 rounded-xl",
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant={isMe ? "secondary" : "ghost"}
+                    className={cn(
+                      "h-7 w-7 rounded-xl",
+                      isMe &&
                         "bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/15",
-                      )}
-                      aria-label="Message actions"
-                    >
-                      ⋯
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                    )}
+                    aria-label="Message actions"
+                  >
+                    ⋯
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    disabled={!!message.deletedAt}
+                    onClick={onCopy}
+                  >
+                    Copy
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled>Forward (UI only)</DropdownMenuItem>
+                  {isMe ? (
                     <DropdownMenuItem
                       disabled={!!message.deletedAt}
                       onClick={onDelete}
                     >
                       Delete
                     </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 

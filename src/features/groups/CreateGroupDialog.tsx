@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CheckboxRow } from "@/features/groups/CheckboxRow";
 import { useRouter } from "next/navigation";
+import { getUserDisplayName } from "@/lib/userPresentation";
 
 export function CreateGroupDialog() {
   const router = useRouter();
@@ -74,7 +75,11 @@ export function CreateGroupDialog() {
                   people.map((u) => (
                     <CheckboxRow
                       key={String(u._id)}
-                      label={u.name}
+                      label={getUserDisplayName({
+                        id: String(u._id),
+                        username: u.name,
+                        email: u.email ?? null,
+                      })}
                       checked={!!selected[String(u._id)]}
                       onCheckedChange={(checked) =>
                         setSelected((s) => ({

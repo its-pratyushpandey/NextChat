@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import { getUserDisplayName } from "@/lib/userPresentation";
 
 export function TypingIndicator({
   typing,
@@ -8,6 +9,13 @@ export function TypingIndicator({
   typing: Array<{ userId: string; name: string }>;
 }) {
   const first = typing[0];
+  const firstName = first
+    ? getUserDisplayName({
+        id: String(first.userId),
+        username: first.name,
+        email: null,
+      })
+    : "";
 
   return (
     <AnimatePresence initial={false}>
@@ -21,7 +29,8 @@ export function TypingIndicator({
           className="mb-2 inline-flex max-w-full items-center gap-2 rounded-full border bg-muted/30 px-3 py-1 text-xs text-muted-foreground"
         >
           <span className="truncate">
-            {first.name}{typing.length > 1 ? ` +${typing.length - 1}` : ""} is
+            {firstName}
+            {typing.length > 1 ? ` +${typing.length - 1}` : ""} is
             typing
           </span>
           <span className="flex items-center gap-1">

@@ -146,7 +146,10 @@ export const listMine = query({
         const other = members.find((x) => x.userId !== me._id);
         if (other) {
           directOtherUser = await ctx.db.get("users", other.userId);
-          title = directOtherUser?.name ?? "Unknown";
+          const candidate = directOtherUser?.name?.trim() ?? "";
+          title = candidate && candidate.toLowerCase() !== "unknown"
+            ? candidate
+            : `User ${shortId(String(other.userId))}`;
           imageUrl = directOtherUser?.imageUrl;
         }
       }
@@ -171,6 +174,20 @@ export const listMine = query({
     return results;
   },
 });
+
+function fnv1a32(input: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+function shortId(value: string): string {
+  const base36 = fnv1a32(value).toString(36);
+  return base36.padStart(6, "0").slice(0, 6).toUpperCase();
+}
 
 export const get = query({
   args: { conversationId: v.id("conversations") },

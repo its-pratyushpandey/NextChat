@@ -3,18 +3,37 @@ import type { Doc } from "../_generated/dataModel";
 import { requireIdentity } from "./auth";
 
 function identityToName(identity: {
+  subject: string;
   name?: string | null;
   nickname?: string | null;
   preferredUsername?: string | null;
   email?: string | null;
 }) {
-  return (
+  const raw =
     identity.name ||
     identity.nickname ||
     identity.preferredUsername ||
     identity.email ||
-    "Unknown"
-  );
+    "";
+  const normalized = String(raw ?? "").trim();
+  if (normalized.length > 0 && normalized.toLowerCase() !== "unknown") {
+    return normalized;
+  }
+  return `User ${shortId(identity.subject)}`;
+}
+
+function fnv1a32(input: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+function shortId(value: string): string {
+  const base36 = fnv1a32(value).toString(36);
+  return base36.padStart(6, "0").slice(0, 6).toUpperCase();
 }
 
 export async function getMe(ctx: QueryCtx): Promise<Doc<"users"> | null> {
